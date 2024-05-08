@@ -33,14 +33,15 @@ command /playerwarps [<string>] [<string>]:
                 send "{@prefix} <##eb3434>You can't place more than &c%getMaxVotes(player)% <##eb3434>warps!"
                 stop
 
-            set {_nbt} to (nbt from "{PlayerWarp:{Name:""%arg-2%"",OwnerName:""%player's name%"",OwnerUUID:""%player's uuid%"",CreatedAt:%unix timestamp of now%,Visits:0,Locked:0}}")
+            set {_name} to arg-2 if player has permission "playerwarps.colored" else uncolored arg-2
+            set {_nbt} to (nbt from "{PlayerWarp:{Name:""%{_name}%"",OwnerName:""%player's name%"",OwnerUUID:""%player's uuid%"",CreatedAt:%unix timestamp of now%,Visits:0,Locked:0}}")
             
             set (double list tag "PlayerWarp;Location;pos" of {_nbt}) to (player's x-coord), (player's y-coord) and (player's z-coord)
             set (float list tag "PlayerWarp;Location;facing" of {_nbt}) to (player's yaw) and (player's pitch)
             set (string tag "PlayerWarp;Location;world" of {_nbt}) to (name of player's world)
 
             add skull of player with nbt from {_nbt} to {playerwarps::*}
-            send "{@prefix} &fSuccessfully &acreated &fwarp ""%arg-2%"""
+            send "{@prefix} &fSuccessfully &acreated &fwarp ""%{_name}%"""
         else if arg-1 = "delete":
 
             arg-2 is not set:
