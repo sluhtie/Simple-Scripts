@@ -1,5 +1,5 @@
 options:
-    prefix: &8┃ <##13a4ed>PWarps &8»&7
+    prefix: &8┃ <##13a4ed>PWarps &8»&f
     no-perms: &8[&c&l!&8] <##eb3434>You don't have permissions to perform this action!
 
 command /playerwarps [<string>] [<string>]:
@@ -7,9 +7,16 @@ command /playerwarps [<string>] [<string>]:
     trigger:
         if arg-1 = "set":
             loop {playerwarps::*}:
+                add 1 to {_currentwarps} if (string tag "PlayerWarp;OwnerUUID" of nbt of loop-value) = uuid of player
                 string tag "PlayerWarp;Name" of nbt of loop-value = arg-2
                 send "{@prefix} <##eb3434>This warp does already exist!"
                 stop
+
+            if {_currentwarps} >= getMaxVotes(player):
+                player does not have permission "playerwarps.max.infinite"
+                send "{@prefix} <##eb3434>You can't place more than &c%getMaxVotes(player)% <##eb3434>warps!"
+                stop
+
             set {_nbt} to nbt from "{PlayerWarp:{Name:""%arg-2%"",OwnerName:""%player's name%"",OwnerUUID:""%player's uuid%"",CreatedAt:%unix timestamp of now%,Visits:0,Locked:0}}"
             set (double tag "PlayerWarp;Location;x" of {_nbt}) to player's x-coord
             set (double tag "PlayerWarp;Location;y" of {_nbt}) to player's y-coord
@@ -18,10 +25,10 @@ command /playerwarps [<string>] [<string>]:
             set (double tag "PlayerWarp;Location;yaw" of {_nbt}) to player's yaw
             set (double tag "PlayerWarp;Location;pitch" of {_nbt}) to player's pitch
             add skull of player with nbt from {_nbt} to {playerwarps::*}
-            send "{@prefix} &aSuccessfully created warp &f""%arg-2%"""
+            send "{@prefix} &fSuccessfully &acreated &fwarp ""%arg-2%"""
         else if arg-1 = "delete":
             arg-2 is not set:
-                send "{@prefix} &7Usage&8: &c/pwarp delete <warp>"
+                send "{@prefix} &fUsage&8: &c/pwarp delete <warp>"
                 stop
             loop {playerwarps::*}:
                 string tag "PlayerWarp;Name" of nbt of loop-value = arg-2
@@ -32,14 +39,14 @@ command /playerwarps [<string>] [<string>]:
             else if string tag "PlayerWarp;OwnerUUID" of nbt of {_item} != uuid of player:
                 send "{@prefix} <##eb3434>You are not the owner of this warp!"
             else:
-                send "{@prefix} &cSuccesfully deleted warp &f""%arg-2%"""
+                send "{@prefix} &fSuccesfully &cdeleted &fwarp ""%arg-2%"""
                 remove {_item} from {playerwarps::*}
         else if arg-1 = "edit":
             arg-2 is not set:
-                send "{@prefix} &7Usage&8: &c/pwarp edit <warp>"
+                send "{@prefix} &fUsage&8: &c/pwarp edit <warp>"
                 stop
             editWarpGUI(player, arg-2)
-        else if getPWarpByName({_warp}) is set:
+        else if getPWarpByName(arg-1) is set:
             teleportToWarp(player, arg-1)
         else:
             openPlayerWarpGUI(player, 1)
@@ -122,6 +129,8 @@ on inventory click:
         add 1 of (type of {_item}) with nbt from {_nbt} to {playerwarps::*}
         set slot 14 of player's current inventory to getLockedStatusItem({_nbt}) named "&bChange Status"
 
+# ----- [ Chat Listening Event (Warp name change) ] ----- #
+
 on chat:
     {recordChat::%uuid of player%} is set
     cancel event
@@ -131,7 +140,7 @@ on chat:
         set string tag "PlayerWarp;Name" of nbt of {_item} to uncolored message
         add {_item} to {playerwarps::*}
         editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
-        send "{@prefix} &aName updated successfully."
+        send "{@prefix} &fName &aupdated &fsuccessfully."
     else:
         editWarpGUI(player, {recordChat::%uuid of player%})
     delete {recordChat::%uuid of player%}
@@ -167,9 +176,10 @@ function teleportToWarp(p: player, warp: string):
     set {_pLoc} to block below {_p}
     loop reversed 3 times:
         {_pLoc} != block below {_p}:
-            send "&cTeleport cancelled" to {_p}
+            send "{@prefix} <##eb3434>Teleport cancelled because you moved!" to {_p}
             stop
-        send "%loop-number%" to {_p}
+        send "{@prefix} &fTeleporting in <##13a4ed>%loop-number% &fsecond. Don't move!" to {_p}
+        play sound "block.note_block.bell" with pitch 1 to {_p}
         wait a second
 
     set {_item} to getPWarpByName({_warp})
@@ -182,7 +192,7 @@ function teleportToWarp(p: player, warp: string):
     set {_pitch} to (double tag "PlayerWarp;Location;pitch" of nbt of {_item})
 
     teleport {_p} to location({_x}, {_y}, {_z}, {_world}, {_yaw}, {_pitch})
-    play sound "entity.enderman.teleport" to {_p}
+    play sound "block.note_block.bell" with pitch 2 to {_p}
 
     int tag "PlayerWarp;Locked" of nbt of {_item} = 0
     remove {_item} from {playerwarps::*}
@@ -240,3 +250,10 @@ function pagination(objects: objects, page: number, elementsPerPage: number) :: 
     loop {_elementsPerPage} times:
         add (({_startIndex} + loop-value)th element out of {_objects::*}) to {_objs::*}
     return {_objs::*}
+
+# Get warp cap from player based of their permission 'playerwarps.max.X'
+function getMaxVotes(p: player) :: integer:
+    loop permissions of {_p} where [input contains "playerwarps.max."]:
+        set {_x::*} to loop-value parsed as "%text%%number%"
+        set {_votes} to {_x::2} if {_x::2} > ({_votes} ? 0)
+    return ({_votes} ? 2)
