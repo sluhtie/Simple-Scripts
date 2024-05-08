@@ -142,9 +142,9 @@ on inventory click:
 
     # Name change
     name of event-slot = "&bChange Name":
-        set {-recordChat-name::%uuid of player%} to {_warp}
-        close player's inventory
+        set (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player) to "name", {_warp}
         send "{@prefix} Please enter how you want to name your warp. Type ""cancel"" to cancel."
+        close player's inventory
 
     # Description change
     name of event-slot = "&bChange Description":
@@ -159,9 +159,9 @@ on inventory click:
             send "{@prefix} &fDescription &cremoved &fsuccessfully."
             set item cooldown of event-slot for player to 10 ticks
         else:
-            set {-recordChat-description::%uuid of player%} to {_warp}
-            close player's inventory
+            set (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player) to "description", {_warp}
             send "{@prefix} Please enter the description of your warp. Type ""&ccancel&f"" to cancel. You can use ""&e\n&f"" to make a new line."
+            close player's inventory
 
     # Icon change
     name of event-slot = "&bChange Icon":
@@ -193,38 +193,46 @@ on inventory click:
 # ----- [ Chat Listening Event (Warp name change) ] ----- #
 
 on chat:
-    {-recordChat-name::%uuid of player%} or {-recordChat-description::%uuid of player%} is set
-    set {_item} to getPWarpByName({-recordChat-name::%uuid of player%} ? {-recordChat-description::%uuid of player%})
+    set {_chatBlocker::*} to (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player)
+    set {_item} to getPWarpByName({_value::2})
     cancel event
-    uncolored message != "cancel":
-        {-recordChat-name::%uuid of player%} is set:
-            length of uncolored message > {@max-name-lenght}:
-                send "{@prefix} <##eb3434>The name can't be longer than &c{@max-name-lenght} <##eb3434>characters, excluding color codes!"
-                stop
-            remove {_item} from {playerwarps::*}
-            set string tag "PlayerWarp;Name" of nbt of {_item} to message
-            add {_item} to {playerwarps::*}
-            editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
-            send "{@prefix} &fName &aupdated &fsuccessfully."
-        else if {-recordChat-description::%uuid of player%} is set:
-            set {_lore::*} to message split at "\n"
-            size of {_lore::*} > {@max-description-lines}:
-                send "{@prefix} <##eb3434>The description can't have more than &c{@max-description-lines} <##eb3434>lines!"
-                stop
-            loop {_lore::*}:
-                length of uncolored loop-value > {@max-description-lenght-per-line}
-                send "{@prefix} <##eb3434>Each line can't be longer than &c{@max-description-lenght-per-line} <##eb3434>characters, excluding color codes!"
-                stop
-            remove {_item} from {playerwarps::*}
-            set (string list tag "PlayerWarp;Description" of nbt of {_item}) to {_lore::*}
-            add {_item} to {playerwarps::*}
-            editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
-            send "{@prefix} &fDescription &aupdated &fsuccessfully."
-            
-    else:
+
+    uncolored message = "cancel":
         editWarpGUI(player, {-recordChat-name::%uuid of player%} ? {-recordChat-description::%uuid of player%})
-    delete {-recordChat-name::%uuid of player%}
-    delete {-recordChat-description::%uuid of player%}
+        delete (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player)
+        stop
+
+    # Name change
+    {_value::1} = "name":
+
+        length of uncolored message > {@max-name-lenght}:
+            send "{@prefix} <##eb3434>The name can't be longer than &c{@max-name-lenght} <##eb3434>characters, excluding color codes!"
+            stop
+
+        remove {_item} from {playerwarps::*}
+        set string tag "PlayerWarp;Name" of nbt of {_item} to message
+        add {_item} to {playerwarps::*}
+
+    # Description change
+    {_value::1} = "description":
+        set {_lore::*} to message split at "\n"
+
+        size of {_lore::*} > {@max-description-lines}:
+            send "{@prefix} <##eb3434>The description can't have more than &c{@max-description-lines} <##eb3434>lines!"
+            stop
+
+        loop {_lore::*}:
+            length of uncolored loop-value > {@max-description-lenght-per-line}
+            send "{@prefix} <##eb3434>Each line can't be longer than &c{@max-description-lenght-per-line} <##eb3434>characters, excluding color codes!"
+            stop
+
+        remove {_item} from {playerwarps::*}
+        set (string list tag "PlayerWarp;Description" of nbt of {_item}) to {_lore::*}
+        add {_item} to {playerwarps::*}
+
+    editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
+    delete (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player)
+    send "{@prefix} &f%{_value::1} in proper case% &aupdated &fsuccessfully."
 
 
 # ----- [ PlayerWarping GUI ] ----- #
