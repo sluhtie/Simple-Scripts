@@ -144,8 +144,6 @@ on chat:
         send "{@prefix} &fName &aupdated &fsuccessfully."
     else:
         editWarpGUI(player, {recordChat::%uuid of player%})
-    broadcast "&a%{recordChat::%uuid of player%}%"
-    broadcast string tag "PlayerWarp;Name" of nbt of {_item}
     delete {recordChat::%uuid of player%}
 
 
