@@ -154,7 +154,7 @@ function openPlayerWarpGUI(p: player, page: integer, onlyOwned: boolean = false)
     set {_n} to 1
     set slot (integers between 0 and 8), (17, 26, 35, 44, 9, 18, 27 and 36) and (integers from 45 to 53) of {_chest} to gray stained glass pane named " "
     loop {_verified::*}:
-        set slot ({_n}st element of {_slots::*}) of {_chest} to getWarpItem(loop-value)
+        set slot ({_n}st element of {_slots::*}) of {_chest} to getWarpItem({_p}, loop-value)
         add 1 to {_n}
     set slot 47 of {_chest} to red dye named "&cPrevious Page &8(&e%{_previouspage}%&8)" if {_previouspage} is set
     set slot 51 of {_chest} to lime dye named "&aNext page &8(&e%{_nextpage}%&8)" if {_nextpage} is set
@@ -163,7 +163,7 @@ function openPlayerWarpGUI(p: player, page: integer, onlyOwned: boolean = false)
     open {_chest} to {_p}
 
 # Create warp GUI item from warp object
-function getWarpItem(item: item) :: item:
+function getWarpItem(p: player, item: item) :: item:
     set {_nbt} to nbt of {_item}
 
     add "&8› &fᴏᴡɴᴇʀ&8: &7%string tag "PlayerWarp;OwnerName" of {_nbt}%" to {_lore::*}
@@ -177,7 +177,10 @@ function getWarpItem(item: item) :: item:
             add "&8› &7%colored loop-value%" to {_lore::*}
 
     add "" to {_lore::*}
-    add "<##fafc5d>ʟᴇғᴛᴄʟɪᴄᴋ ᴛᴏ ᴛᴇʟᴇᴘᴏʀᴛ" to {_lore::*} if (int tag "PlayerWarp;Locked" of {_nbt}) != 1 else "<##eb3434>ᴛʜɪs ᴡᴀʀᴘ ɪs ʟᴏᴄᴋᴇᴅ"
+    if (int tag "PlayerWarp;Locked" of {_nbt}) != 1:
+        add "<##fafc5d>ʟᴇғᴛᴄʟɪᴄᴋ ᴛᴏ ᴛᴇʟᴇᴘᴏʀᴛ" to {_lore::*}
+    else:
+        add "<##eb3434>ᴛʜɪs ᴡᴀʀᴘ ɪs ʟᴏᴄᴋᴇᴅ" to {_lore::*}
     add "<##42edd1>ʀɪɢʜᴛᴄʟɪᴄᴋ ᴛᴏ ᴇᴅɪᴛ" to {_lore::*} if (string tag "PlayerWarp;OwnerUUID" of {_nbt}) = uuid of {_p}
 
     set {_name} to (string tag "PlayerWarp;Name" of {_nbt})
