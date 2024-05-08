@@ -90,7 +90,7 @@ on tab complete of "playerwarps" or "pw" or "pwarp":
             add uncolored {_warp} to tab completions for position 2
         else:
             set tab completions for position 2 to {_warps::*}
-    set tab completions for position 1 to "set" and "delete" and "edit" and {_warps::*}
+    set tab completions for position 1 to "set", "create", "delete" and "edit" and {_warps::*}
 
 # ----- [ Chat Listening Event (Warp name change) ] ----- #
 
