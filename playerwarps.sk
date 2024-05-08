@@ -100,7 +100,7 @@ on chat:
     cancel event
 
     uncolored message = "cancel":
-        editWarpGUI(player, {-recordChat-name::%uuid of player%} ? {-recordChat-description::%uuid of player%})
+        editWarpGUI(player, {_value::2})
         delete (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player)
         stop
 
@@ -112,7 +112,9 @@ on chat:
             stop
 
         remove {_item} from {playerwarps::*}
-        set string tag "PlayerWarp;Name" of nbt of {_item} to message
+        set (string tag "PlayerWarp;Name" of nbt of {_item}) to message
+        editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
+        send "{@prefix} &fName &aupdated &fsuccessfully."
         add {_item} to {playerwarps::*}
 
     # Description change
@@ -130,11 +132,30 @@ on chat:
 
         remove {_item} from {playerwarps::*}
         set (string list tag "PlayerWarp;Description" of nbt of {_item}) to {_lore::*}
+        editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
+        send "{@prefix} &fDescription &aupdated &fsuccessfully."
         add {_item} to {playerwarps::*}
 
-    editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
+    # Owner transfer
+    {_value::1} = "ownerTransfer":
+        set {_target} to uncolored message
+
+        {_target} does not match "^[a-zA-Z0-9_]{2,16}$":
+            send "{@prefix} <##eb3434>This is not a valid Minecraft username!"
+            stop
+
+        {_target} parsed as player is not set:
+            send "{@prefix} <##eb3434>This player is not online!"
+            stop
+
+        remove {_item} from {playerwarps::*}
+        set {_nbt} to nbt of {_item}
+        set (string tag "PlayerWarp;OwnerName" of {_nbt}) to {_target}
+        set (string tag "PlayerWarp;OwnerUUID" of {_nbt}) to uuid of ({_target} parsed as player)
+        send "{@prefix} The warp has successfully been transfered to &e%{_target}%"
+        add 1 of skull of ({_target} parsed as player) with nbt from "{PlayerWarp:%compound tag "PlayerWarp" of {_nbt}%}" to {playerwarps::*}
+
     delete (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player)
-    send "{@prefix} &f%{_value::1} in proper case% &aupdated &fsuccessfully."
 
 
 # ----- [ PlayerWarping GUI ] ----- #
@@ -158,7 +179,7 @@ function openPlayerWarpGUI(p: player, page: integer, onlyOwned: boolean = false)
         add 1 to {_n}
     set slot 47 of {_chest} to red dye named "&cPrevious Page &8(&e%{_previouspage}%&8)" if {_previouspage} is set
     set slot 51 of {_chest} to lime dye named "&aNext page &8(&e%{_nextpage}%&8)" if {_nextpage} is set
-    set slot 49 of {_chest} to ({_toggleOwnedItem} ? diamond) named "&aOnly Show Owned Warps" with lore "&7This will display only%nl%&7warps that are owned by you."
+    set slot 49 of {_chest} to ({_toggleOwnedItem} ? diamond) named "&8» &aOnly Show Owned Warps" with lore "&7This will display only%nl%&7warps that are owned by you."
     set {-page::%uuid of {_p}%} to {_page} ? 1
     open {_chest} to {_p}
 
@@ -259,16 +280,20 @@ function editWarpGUI(p: player, warp: string):
         stop
 
     set metadata value "editingWarp" of {_p} to {_warp}
-    set {_gui} to chest inventory with 3 rows named "&8» <##13a4ed>&lEDIT WARP &8[&7%{_warp}%&8]"
+    set {_gui} to chest inventory with 5 rows named "&8» <##13a4ed>&lEDIT WARP &8[&7%{_warp}%&8]"
 
-    set slot (integers from 0 to 26) of {_gui} to gray stained glass pane named ""
-    set slot 11 of {_gui} to name tag named "&bChange Name" with lore "&7Sets the name of the warp."
-    set slot 12 of {_gui} to book named "&bChange Description" with lore "&7Sets the description of the warp.", "&cʀɪɢʜᴛᴄʟɪᴄᴋ ᴛᴏ ʀᴇᴍᴏᴠᴇ"
+    set slot (integers from 0 to 44) of {_gui} to gray stained glass pane named " "
+    set slot (integers from 20 to 24) of {_gui} to white stained glass pane named " "
+    set slot 11 of {_gui} to name tag named "&8» &bChange Name" with lore "&7Sets the name of your warp."
+    set slot 12 of {_gui} to book named "&8» &bChange Description" with lore "&7Sets the description of your warp.", "&cʀɪɢʜᴛᴄʟɪᴄᴋ ᴛᴏ ʀᴇᴍᴏᴠᴇ"
     set {_info} to "%nl%&c(Can't be air)" if {_p}'s tool is air
-    set slot 13 of {_gui} to crafting table named "&bChange Icon" with lore "&7Sets the item that you are%nl%&7currently holding as warp icon.%{_info} ? ""%"
-    set slot 14 of {_gui} to getLockedStatusItem({_nbt}) named "&bChange Status"
-    set slot 15 of {_gui} to empty map named "&bUpdate Location" with lore "&7Sets the location of the warp,%nl%&7to your current position."
-    set slot 22 of {_gui} to barrier named "&cGo back"
+    set slot 13 of {_gui} to crafting table named "&8» &bChange Icon" with lore "&7Sets the item that you are%nl%&7currently holding as warp icon.%{_info} ? ""%"
+    set slot 14 of {_gui} to getLockedStatusItem({_nbt}) named "&8» &bChange Status"
+    set slot 15 of {_gui} to empty map named "&8» &bUpdate Location" with lore "&7Sets the location of your warp,%nl%&7to your current position."
+    
+    set slot 29 of {_gui} to customSkull("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMzdhZWU5YTc1YmYwZGY3ODk3MTgzMDE1Y2NhMGIyYTdkNzU1YzYzMzg4ZmYwMTc1MmQ1ZjQ0MTlmYzY0NSJ9fX0=") named "&8» &cGo back" with lore "&7Click to go back"
+    set slot 31 of {_gui} to customSkull("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYmViNTg4YjIxYTZmOThhZDFmZjRlMDg1YzU1MmRjYjA1MGVmYzljYWI0MjdmNDYwNDhmMThmYzgwMzQ3NWY3In19fQ==") named "&8» &4Delete Warp" with lore "&cThis will delete your warp!%nl%&cEqual to &4/pwarp delete %unformatted {_warp}%"
+    set slot 33 of {_gui} to customSkull("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNTBhMThhZWVlMzU3YTIyZDk0MjExYzM0OTk2MmQxY2U1MjEwMzliMDViZTU0Mjk0NWM0NDFmOTE5M2ExMTllIn19fQ==") named "&8» &eTransfer Ownership" with lore "&7This will transfer your warp%nl%&7to another player.%nl%&c(This can't be undone!)"
 
     open {_gui} to {_p}
 
@@ -285,46 +310,60 @@ on inventory click:
 
     set {_warp} to metadata value "editingWarp" of player
     {_warp} is set
- 
-    if type of event-slot = barrier:
-        set {-page::%uuid of player%} to 1 if {-page::%uuid of player%} is not set
-        openPlayerWarpGUI(player, {-page::%uuid of player%})
-        stop
 
     set {_item} to getPWarpByName({_warp})
     set {_nbt} to nbt of {_item}
+ 
+    # Back button
+    name of event-slot = "&8» &cGo back":
+        set {-page::%uuid of player%} to 1 if {-page::%uuid of player%} is not set
+        openPlayerWarpGUI(player, {-page::%uuid of player%})
+        stop
+    
+    name of event-slot = "&8» &4Delete Warp":
+        remove {_item} from {playerwarps::*}
+        send "{@prefix} &fSuccesfully &cdeleted &fwarp ""%{_warp}%"""
+        openPlayerWarpGUI(player, 1)
+
+    name of event-slot = "&8» &eTransfer Ownership":
+        set (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player) to "ownerTransfer" and "%{_warp}%"
+        send "{@prefix} Please enter the name of the player you want to transfer your warp to. Type ""&ccancel&f"" to cancel."
+        close player's inventory
 
     # Name change
-    name of event-slot = "&bChange Name":
+    name of event-slot = "&8» &bChange Name":
         set (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player) to "name" and "%{_warp}%"
         send "{@prefix} Please enter how you want to name your warp. Type ""cancel"" to cancel."
         close player's inventory
 
     # Description change
-    name of event-slot = "&bChange Description":
+    name of event-slot = "&8» &bChange Description":
         item cooldown of event-slot for player is not more than 0 seconds
-        click type = right mouse button:
-            (string list tag "PlayerWarp;Description" of nbt of {_item}) is not set:
-                send "{@prefix} You don't have a description set!"
-                stop
-            remove {_item} from {playerwarps::*}
-            delete (string list tag "PlayerWarp;Description" of nbt of {_item})
-            add {_item} to {playerwarps::*}
-            send "{@prefix} &fDescription &cremoved &fsuccessfully."
-            set item cooldown of event-slot for player to 10 ticks
-        else:
+
+        click type != right mouse button:
             set (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player) to "description", {_warp}
             send "{@prefix} Please enter the description of your warp. Type ""&ccancel&f"" to cancel. You can use ""&e\n&f"" to make a new line."
             close player's inventory
+            stop
+
+        (string list tag "PlayerWarp;Description" of nbt of {_item}) is not set:
+            send "{@prefix} You don't have a description set!"
+            stop
+
+        remove {_item} from {playerwarps::*}
+        delete (string list tag "PlayerWarp;Description" of nbt of {_item})
+        add {_item} to {playerwarps::*}
+        send "{@prefix} &fDescription &cremoved &fsuccessfully."
+        set item cooldown of event-slot for player to 10 ticks
 
     # Icon change
-    name of event-slot = "&bChange Icon":
+    name of event-slot = "&8» &bChange Icon":
         player's tool != air
         remove {_item} from {playerwarps::*}
         add 1 of (type of player's tool) with nbt from {_nbt} to {playerwarps::*}
 
     # Status change
-    name of event-slot = "&bChange Status":
+    name of event-slot = "&8» &bChange Status":
         remove {_item} from {playerwarps::*}
         if (int tag "PlayerWarp;Locked" of {_nbt}) = 0:
             set int tag "PlayerWarp;Locked" of {_nbt} to 1
@@ -334,7 +373,7 @@ on inventory click:
         set slot 14 of player's current inventory to getLockedStatusItem({_nbt}) named "&bChange Status"
 
     # Update location
-    name of event-slot = "&bUpdate Location":
+    name of event-slot = "&8» &bUpdate Location":
         remove {_item} from {playerwarps::*}
 
         set (double list tag "PlayerWarp;Location;pos" of {_nbt}) to (player's x-coord), (player's y-coord) and (player's z-coord)
@@ -351,12 +390,14 @@ on inventory click:
 
 # Automatic inventory opening on closing
 on inventory close:
-    if name of event-inventory starts with "&8» <##13a4ed>&lEDIT WARP &8[":
+
+    name of event-inventory starts with "&8» <##13a4ed>&lEDIT WARP &8[":
         wait a tick
-        {recordChat::%uuid of player%} is not set
+        (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player) is not set
         name of player's current inventory does not start with "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page "
         openPlayerWarpGUI(player, {-page::%uuid of player%})
-    else if name of event-inventory starts with "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page ":
+
+    name of event-inventory starts with "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page ":
         wait a tick
         name of player's current inventory does not start with "&8» <##13a4ed>&lEDIT WARP &8[&7" or "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page "
         delete {-page::%uuid of player%}
@@ -365,8 +406,7 @@ on inventory close:
 function getPWarpByName(warp: string) :: item:
     loop {playerwarps::*}:
         set {_tag} to (string tag "PlayerWarp;Name" of nbt of loop-value)
-        uncolored {_tag} = uncolored {_warp}
-        return loop-value
+        return loop-value if uncolored {_tag} = uncolored {_warp}
 
 # Calculate amount of items listed on GUI page
 function pagination(objects: objects, page: number, elementsPerPage: number) :: objects:
@@ -383,3 +423,6 @@ function getMaxVotes(p: player) :: integer:
         set {_x::*} to loop-value parsed as "%text%%number%"
         set {_votes} to {_x::2} if {_x::2} > ({_votes} ? 0)
     return ({_votes} ? 2)
+
+function customSkull(nbt: string) :: item:
+    return player head with nbt compound from "{SkullOwner:{Id:[I;0,0,0,0],Properties:{textures:[{Value:""%{_nbt}%""}]}}}"
