@@ -91,12 +91,13 @@ on inventory click:
 # ----- [ Inventory Click Event (Warp Editing GUI) ] ----- #
 
 on inventory click:
-    name of player's current inventory starts with "<##13a4ed>Edit Warp&8: "
+    name of player's current inventory starts with "&8» <##13a4ed>&lEDIT WARP &8[&7"
     cancel event
     event-inventory = player's current inventory
 
-    set {_warp} to last element out of (unformatted name of player's current inventory split at " ")
-
+    set {_warp} to unformatted name of player's current inventory
+    replace all "» EDIT WARP [" and "]" with "" in {_warp}
+ 
     if type of event-slot = barrier:
         set {-page::%uuid of player%} to 1 if {-page::%uuid of player%} is not set
         openPlayerWarpGUI(player, {-page::%uuid of player%})
@@ -143,6 +144,8 @@ on chat:
         send "{@prefix} &fName &aupdated &fsuccessfully."
     else:
         editWarpGUI(player, {recordChat::%uuid of player%})
+    broadcast "&a%{recordChat::%uuid of player%}%"
+    broadcast string tag "PlayerWarp;Name" of nbt of {_item}
     delete {recordChat::%uuid of player%}
 
 
@@ -212,11 +215,12 @@ function editWarpGUI(p: player, warp: string):
         send "{@prefix} <##eb3434>You are not the owner of this warp!" to {_p}
         stop
 
-    set {_gui} to chest inventory with 3 rows named "<##13a4ed>Edit Warp&8: %{_warp}%"
+    set {_gui} to chest inventory with 3 rows named "&8» <##13a4ed>&lEDIT WARP &8[&7%{_warp}%&8]"
 
     set slot (integers from 0 to 26) of {_gui} to gray stained glass pane named ""
     set slot 12 of {_gui} to name tag named "&bChange Name" with lore "&7Sets the name of the warp."
-    set slot 13 of {_gui} to crafting table named "&bChange Icon" with lore "&7Sets the item that you are%nl%&7currently holding as warp icon.%nl%&c(Can't be air)"
+    set {_info} to "%nl%&c(Can't be air)" if {_p}'s tool is air
+    set slot 13 of {_gui} to crafting table named "&bChange Icon" with lore "&7Sets the item that you are%nl%&7currently holding as warp icon.%{_info} ? ""%"
     set slot 14 of {_gui} to getLockedStatusItem({_nbt}) named "&bChange Status"
     set slot 22 of {_gui} to barrier named "&cGo back"
 
@@ -227,14 +231,14 @@ function getLockedStatusItem(warp: nbt compound) :: item:
     return lime dye with lore "&7Toggles if player's are allowed%nl%&7to teleport to your warp.%nl%%nl%&8› &fsᴛᴀᴛᴜs&8: &aOpened"
 
 on inventory close:
-    if name of event-inventory starts with "<##13a4ed>Edit Warp&8: ":
+    if name of event-inventory starts with "&8» <##13a4ed>&lEDIT WARP &8[&7":
         wait a tick
         {recordChat::%uuid of player%} is not set
         name of player's current inventory does not start with "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page "
         openPlayerWarpGUI(player, {-page::%uuid of player%})
     else if name of event-inventory starts with "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page ":
         wait a tick
-        name of player's current inventory does not start with "<##13a4ed>Edit Warp&8: " or "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page "
+        name of player's current inventory does not start with "&8» <##13a4ed>&lEDIT WARP &8[&7" or "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page "
         delete {-page::%uuid of player%}
 
 # Get warp object from list by name function
