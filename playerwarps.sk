@@ -160,7 +160,7 @@ on inventory click:
         else:
             set {-recordChat-description::%uuid of player%} to {_warp}
             close player's inventory
-            send "{@prefix} Please enter the description of your warp. Type ""cancel"" to cancel."
+            send "{@prefix} Please enter the description of your warp. Type ""&ccancel&f"" to cancel. You can use ""&e\n&f"" to make a new line."
 
     # Icon change
     name of event-slot = "&bChange Icon":
