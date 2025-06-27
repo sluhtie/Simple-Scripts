@@ -1,0 +1,153 @@
+# Simple Discord Linking
+# by sluhtie (Support: https://discord.gg/F54c7Gw59p)
+
+options:
+    prefix: &8┃ &9&lDISCORD &8»
+    error: &8┃ <##f54725>&lERROR &8»&c
+    changesuffix: true
+
+    server-ip: play.yourserver.com # Your Minecraft Server IP
+    discord-url: https://discord.gg/yourserver # Your Discord Server IP
+    bot-token: enter_bot_token # Enter your bot token
+
+    # Make sure to enable Developer Mode in settings for IDs!
+    guild: 000000000000000 # Your guild ID, -> Rightclick on your discord server and click copy ID.
+    linked-role: 000000000000000 # Your linked role ID, -> Rightclick on your linked role and click copy ID.
+    linking-channel: 000000000000000 # Your discord linking channel ID -> Rightclick on your linking channel and click copy ID.
+
+on join:
+    {@changesuffix} = true
+    set player's suffix to " &c• "
+    set player's suffix to " &a• " if {discord::%uuid of player%} is set
+
+define new bot named "linking":
+    token: {@bot-token}
+    intents: default intents
+    policy: all
+    auto reconnect: true
+    compression: none
+    on ready:
+        send "&a%event-bot%&2 has been loaded!" to console
+        set the presence of the bot named "linking" to watching "%size of discord members of guild with id "{@guild}"% Members"
+
+# Information: In this function you can additionally add roles that the user will be given when linking or synchronising.
+# A example can be found at the end of this function.
+function syncAccount(p: player):
+    set {_dcid} to {discord::%uuid of {_p}%}
+    set {_member} to member with id {_dcid} in guild with id "{@guild}"
+    add role with id "{@linked-role}" to roles of {_member}
+    set {_p}'s suffix to " &a• " if {@changesuffix} = true
+    # This is a simple example how you could give a player a role depending on their player group.
+    # Note: After each Discord action like renaming the user, applying a role etc you will need to insert a 1 second delay!!
+    
+    # wait 1 second
+    # if {_p}'s groups contains "premium":
+    #     add role with id "<premium-role-id>" to roles of {_member}
+    # else if {_p}'s groups contains "vip":
+    #     add role with id "<vip-role-id>" to roles of {_member}
+
+# If you don't have skBee you can remove the tab completions
+on tab complete of "discord":
+    set tab completions for position 1 to "link", "unlink" and "sync"
+    set tab completions for position 2 to {-linkrequests::%uuid of player%::*} if tab arg-1 = "link"
+
+command /discord [<string>] [<string>]:
+    trigger:
+        set {_id} to {discord::%uuid of player%}
+
+        # Link Discord Account with MC Account
+        if arg-1 = "link":
+            if {_id} is set:
+                send "{@error} Your account is already connected to a Discord Account!"
+            else if arg-2 is not set:
+                send "{@prefix} Usage: &c/discord link <discord id>"
+            else if {-linkrequests::%uuid of player%::*} does not contain arg-2:
+                send "{@error} Your don't have a connection request from this Account!"
+            else:
+                complete {-dclink::%player's uuid%} with arg-2
+
+        # Optional unlink account with Discord Account
+        else if arg-1 = "unlink":
+            if {_id} is not set:
+                send "{@error} You account is not linked!"
+                play sound "block.note_block.didgeridoo" with pitch 0.75 to player
+            else:
+                remove role with id "{@linked-role}" from roles of member with id {_id} in guild with id "{@guild}"
+                delete {discord::%uuid of player%}
+                send "{@prefix} &7You successfully unlinked your account."
+
+        # Resynchronise Account & Roles
+        else if arg-1 = "sync":
+            {_id} is not set:
+                send "{@error} Your account is not linked!"
+                play sound "block.note_block.didgeridoo" with pitch 0.75 to player
+            else:
+                send "{@prefix} &7Your account has successfully been synchronized!"
+                syncAccount(player)
+
+        else:
+            play sound "block.note_block.bell" with pitch 2 to player
+            send ""
+            send " <#7289da>○ &8┃ &7Join our &fDiscord &7Community"
+            send formatted " &8➥ <#7289da><link:{@discord-url}><ttp:Click to join>{@discord-url}"
+            send ""
+
+slash command linkembed:
+    description: Sends the embed for the linking help
+    enabled for: administrator
+    bot: linking
+    trigger:
+        make embed:
+            set title of embed to "Link Minecraft Account"
+            set description of embed to "Here you can link your Discord account with Minecraft.%nl%If you have purchased a rank, you will receive the **Donator** role automatically after linking."
+            set embed color of the embed to blue
+            add field named "> Instructions:" with value "**1.** To link your account, join our server via **{@server-ip}**%nl%**2.** Use **/link <Ingame Name>** inside of this Discord Channel.%nl%**3.** You will receive a connection request ingam, click on accept." to fields of embed
+            set thumbnail of embed to "https://mir-s3-cdn-cf.behance.net/user/276/1eb879856067393.6017e46a6f987.png"
+            set footer of embed to "Made by %user from id "830057380359438396"%"
+            set footer icon of embed to "https://i.imgur.com/95ZGsA6.png"
+            set timestamp of embed to now
+        reply with last embed
+        set {-tempblock} to true
+
+slash command link <string="username">:
+    description: Connect your Discord to your Minecraft Account
+    bot: linking
+    arguments:
+        username: 
+            description: Your Minecraft username
+    trigger:
+        set {_p} to arg-1 parsed as player
+        {_p} is not set:
+            reply with hidden "You are not connected to our Server!"
+            stop
+        reply with hidden "Please accept the connection request ingame.."
+        send formatted "{@prefix} &7The Discord user &9%event-member% &7wants to connect their account to you. <cmd:/discord link %discord id of event-member%>&8[&aAccept&8]" to {_p}
+        add discord id of event-member to {-linkrequests::%uuid of {_p}%::*}
+
+        set {-dclink::%{_p}'s uuid%} to new future with 15 second timeout
+        wait for {-dclink::%{_p}'s uuid%} and store the result in {_response}
+        
+        remove discord id of event-member from {-linkrequests::%uuid of {_p}%::*}
+        delete {-dclink::%{_p}'s uuid%}
+        {_response} = discord id of event-member
+
+        set {discord::%uuid of {_p}%} to {_response}
+        send "{@prefix} &aYour Discord Account is not connected to &f%event-member%&a!" to {_p}
+        syncAccount({_p})
+
+        make embed:
+            set author of the embed to "Connection successfull"
+            set author icon of embed to "https://minotar.net/helm/%{_p}%/100.png"
+            set description of embed to "%mention tag of event-member% connected with **%{_p}%**"
+            set embed color of embed to green
+        post last embed to text channel with id "{@linking-channel}"
+
+on message received:
+    discord id of event-textchannel = "{@linking-channel}"
+    {-tempblock} is set:
+        delete {-tempblock}
+    else:
+        retrieve last 1 message from event-channel and store them in {_msg::*}
+        wait 5 seconds
+        purge {_msg::*}
+

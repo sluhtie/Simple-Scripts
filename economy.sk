@@ -1,0 +1,43 @@
+# Simple Economy (Discord: sluhtie)
+options:
+    prefix: &8┃ &dEconomy &8»&7
+    no-perms: &8[&c&l!&8] <##eb3434>You don't have permissions to perform this action!
+    error: &8[&c&l!&8] <##eb3434>
+
+    allow-negative-balance: false #Allows accounts to go into negative balance, if false amount will be set to 0
+    perm: economy.manage #Permission to manage a player's balance
+
+#Command it self, manage or check a player's balance
+command /balance [<player>] [<string>] [<number>]:
+    aliases: bal, money
+    trigger:
+        arg-1 is not set:
+            send "{@prefix} &7Your balance: &d$%{balance::%uuid of player%} ? 0%"
+        else if arg-2 != "add" or "remove" or "set":
+            send "{@prefix} &7%arg-1%'s balance: &d$%{balance::%uuid of arg-1%} ? 0%"
+        else if sender does not have permissions "{@perm}":
+            send "{@no-perms}"
+        else if arg-3 is not set:
+            send "{@prefix} &7Usage: &c/balance %arg-1% %lowercase arg-2% <amount>"
+        else if arg-3 < 0:
+            send "{@error} You can't use negative amounts!"
+        else if arg-2 = "add":
+            add arg-3 to {balance::%uuid of arg-1%}
+            send "{@prefix} Added &a$%arg-3% &7to &a%arg-1%'s &7account."
+        else if arg-2 = "remove":
+            remove arg-3 from {balance::%uuid of arg-1%}
+            send "{@prefix} Removed &a$%arg-3% &7from &a%arg-1%'s &7account."
+            {@allow-negative-balance} != true
+            delete {balance::%uuid of arg-1%} if {balance::%uuid of arg-1%} < 0
+        else if arg-2 = "set":
+            set {balance::%uuid of arg-1%} to arg-3
+            send "{@prefix} Set &a%arg-1%'s &7account to &a$%arg-3%"
+            {@allow-negative-balance} != true
+            delete {balance::%uuid of arg-1%} if {balance::%uuid of arg-1%} < 0
+
+#Tab completions (remove this part if you don't want tab completions, also requires skbee)
+on tab complete of "/balance" or "/bal" or "/money":
+    set tab completions for position 1 to all players
+    player has permissions "{@perm}"
+    set tab completions for position 2 to "add", "remove" and "set"
+    set tab completions for position 3 to "<amount>"

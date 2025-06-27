@@ -1,0 +1,47 @@
+#    _____ _                 _        _      _  __          _             _ 
+#   / ____(_)               | |      | |    (_)/ _|        | |           | |
+#  | (___  _ _ __ ___  _ __ | | ___  | |     _| |_ ___  ___| |_ ___  __ _| |
+#   \___ \| | '_ ` _ \| '_ \| |/ _ \ | |    | |  _/ _ \/ __| __/ _ \/ _` | |
+#   ____) | | | | | | | |_) | |  __/ | |____| | ||  __/\__ \ ||  __/ (_| | |
+#  |_____/|_|_| |_| |_| .__/|_|\___| |______|_|_| \___||___/\__\___|\__,_|_|
+#                     | |                                                   
+#                     |_|                                                   
+# Made by sluhtie (https://www.spigotmc.org/resources/authors/sluhtie.869012/)
+
+options:
+    heart-item: nether star named "&c&lHeart"
+    max-health: 20
+    min-health: 1
+
+command /resethearts [<player>]:
+    permission: lifesteal.reset
+    trigger:
+        set {_target} to arg-1 ? player
+        set {_target}'s max health to 10
+        heal {_target}
+
+command /withdrawheart [<integer>]:
+    trigger:
+        set {_amount} to arg-1 ? 1
+        if {_amount} > (player's max health)-{@min-health}:
+            send action bar "&cʏᴏᴜ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴇɴᴏᴜɢʜ ʜᴇᴀʀᴛs!"
+        else if player can't hold {_amount} of {@heart-item}:
+            send action bar "&cʏᴏᴜ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴇɴᴏᴜɢʜ sᴘᴀᴄᴇ!"
+        else:
+            subtract {_amount} from player's max health
+            give {_amount} of {@heart-item} with custom nbt from "{HeartItem:1b}" to player
+
+on right click:
+    boolean tag "HeartItem" of custom nbt of player's tool = true
+    if player's max health >= {@max-health}:
+        send action bar "&cʏᴏᴜ ᴄᴀɴ'ᴛ ʀᴇᴅᴇᴇᴍ ᴍᴏʀᴇ ʜᴇᴀʀᴛs!"
+    else:
+        set {_amount} to item amount of player's tool if player is sneaking else 1
+        set {_amount} to {@max-health}-(player's max health) if {_amount} >= {@max-health}-(player's max health)
+        remove {_amount} of player's tool from player
+        add {_amount} to player's max health
+        send action bar "&aʏᴏᴜ sᴜᴄᴄᴇssғᴜʟʟʏ ʀᴇᴅᴇᴇᴍᴇᴅ %{_amount}% ʜᴇᴀʀᴛs" to player
+
+on death of player:
+    add 1 to attacker's max health if attacker's max health < {@max-health}
+    remove 1 from victim's max health if victim's max health > {@min-health}

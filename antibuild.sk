@@ -1,0 +1,138 @@
+#																							   #
+#   _____ _                 _                       _   _ _           _ _     _                #
+#  / ____(_)               | |          /\         | | (_) |         (_) |   | |               #
+# | (___  _ _ __ ___  _ __ | | ___     /  \   _ __ | |_ _| |__  _   _ _| | __| |               #
+#  \___ \| | '_ ` _ \| '_ \| |/ _ \   / /\ \ | '_ \| __| | '_ \| | | | | |/ _` |               #
+#  ____) | | | | | | | |_) | |  __/  / ____ \| | | | |_| | |_) | |_| | | | (_| |               #
+# |_____/|_|_| |_| |_| .__/|_|\___| /_/    \_\_| |_|\__|_|_.__/ \__,_|_|_|\__,_|               #
+#                    | |                        by sluhtie#1234                                #
+#                    |_|                        https://dsc.gg/nachtlokal                      #
+#																							   #
+
+options:
+
+    prefix: &8┃ &4Anti&cBuild &8»&7
+    no-permission: &7You don't have the required permissions!
+    aliases: buildmode, b
+
+    #Permissions - Configure all permissions here
+    build-permission-others: antibuild.use.others
+    build-permission: antibuild.use
+
+    #Default Gamemode
+    use-default-gamemode-on-join: true
+    default-gamemode: survival
+
+    #Events on toggling buildmode
+    clear-inventory-on-disable: true
+    change-gamemode-on-disable: true
+    gamemode-on-disable: survival
+
+    clear-inventory-on-enable: false
+    change-gamemode-on-enable: true
+    gamemode-on-enable: creative
+
+    #Build Messages - Configure the Build enabled/disabled messages for self and others
+    build-disabled-self: &7Your buildmode has been &cdisabled
+    build-enabled-self: &7Your buildmode has been &aenabled
+
+    build-disabled-other: &7You &cdisabled &7{p}'s buildmode
+    build-enabled-other: &7You &aenabled &7{p}'s buildmode
+
+    #Worlds - Configure messages and worlds in what the skript should work in (seperate worlds with ,)
+    use-world-list: true #Enable or disable this feature
+    world-list-type: blacklist #Available Options: blacklist, whitelist
+    world-error: &cYou can't use this command here!
+    worlds: world_nether, world_the_end
+
+    #Extra - Configure all the other messages
+    not-online: &cThis player isn't online!
+    only-players: &cThis command can only be used by players!
+
+
+#---DEAD LINE [WARNING]-------------------------------------#
+# I will not provide support if the code below was changed!
+# Only edit if you know what you are doing!
+
+function toggleBuild(p: player):
+    if {build::%uuid of {_p}%} is true:
+        delete {build::%uuid of {_p}%}
+        send "{@prefix} {@build-disabled-self}" to {_p}
+        {@change-gamemode-on-disable} = true:
+            set {_p}'s gamemode to {@gamemode-on-disable}
+        {@clear-inventory-on-disable} = true
+        clear {_p}'s inventory
+        stop
+    set {build::%uuid of {_p}%} to true
+    send "{@prefix} {@build-enabled-self}" to {_p}
+    {@change-gamemode-on-enable} = true:
+        set {_p}'s gamemode to {@gamemode-on-enable}
+    {@clear-inventory-on-enable} = true
+    clear {_p}'s inventory
+
+function checkWorld(world: world) :: boolean:
+    {@use-world-list} = false:
+        return true
+    set {_worlds::*} to "{@worlds}" split at ","
+    replace all " " with "" in {_worlds::*}
+    "{@world-list-type}" = "blacklist":
+        {_worlds::*} does not contain "%{_world}%"
+        return true
+    else if "{@world-list-type}" = "whitelist":
+        {_worlds::*} contains "%{_world}%"
+        return true
+
+on join:
+    {@use-default-gamemode-on-join} = true
+    set player's gamemode to {@default-gamemode}
+on quit:
+    delete {build::%uuid of player%}
+on world change:
+    checkWorld(player's world) != true
+    delete {build::%uuid of player%}
+    {@change-gamemode-on-disable} = true:
+        set player's gamemode to {@gamemode-on-disable}
+    {@clear-inventory-on-disable} = true
+    clear players's inventory
+on place:
+    checkWorld(player's world) = true
+    {build::%uuid of player%} != true
+    cancel event
+on break:
+    checkWorld(player's world) = true
+    {build::%uuid of player%} != true
+    cancel event
+on right click:
+    checkWorld(player's world) = true
+    {build::%uuid of player%} != true
+    cancel event
+
+command /build [<offline player>]:
+    aliases: {@aliases}
+    permission: {@build-permission}
+    permission message: {@prefix} {@no-permission}
+    trigger:
+        if checkWorld(player's world) != true:
+            send "{@prefix} {@world-error}"
+        else if arg-1 is not set:
+            if sender = CONSOLE:
+                send "{@only-players}"
+                stop
+            toggleBuild(player)
+        else if sender does not have permission "{@build-permission-others}":
+            send "{@prefix} {@no-permission}"
+        else:
+            set {_target} to arg-1 parsed as player
+            if {_target} is not set:
+                send "{@prefix} {@not-online}"
+                stop
+            set {_x} to "{@build-disabled-other}"
+            set {_y} to "{@build-enabled-other}"
+            replace all "{p}" with arg-1 in {_x} and {_y}
+            if {build::%uuid of {_target}%} is true:
+                toggleBuild({_target})
+                send "{@prefix} %{_x}%"
+                stop
+            toggleBuild({_target})
+            send "{@prefix} %{_y}%"
+    

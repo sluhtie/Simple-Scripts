@@ -1,0 +1,183 @@
+# Simple Coinflip by sluhtie (https://guns.lol/sluhtie)
+# This Skript requires SKBEE (https://github.com/SkriptHub/SkBee/releases)
+
+options:
+    prefix: &8┃ &6Coin&eFlip &8»&7
+    no-perms: &8[&c&l!&8] <##eb3434>You don't have permissions to perform this action!
+
+    gui-name: &8» &6Coin&eFlip &8[&7Page %{_page}%&8]   # Use %{_page}% to display the current page
+    broadcast: true                                     # Toggle if it should be broadcastet when a player wins or loses
+    min-bid: 1                                          # Sets the minimum amount a player must bid
+    max-bid: -1                                         # Set to -1 to disable
+
+on quit:
+    {-cfrequests::*} contains player
+    add {-cfrequests::%player%::bid} to balance of player
+    delete {-cfrequests::%player%::bid}
+    remove {_host} from {-cfrequests::*}
+
+on unload:
+    loop {-cfrequests::*}:
+        add {-cfrequests::%loop-value%::bid} to balance of loop-value
+    delete {-cfrequests::*}
+
+on tab complete of "coinflip" or "cf":
+    set tab completions for position 1 to "create", "delete"
+    set tab completions for position 2 to "<amount>" if tab arg-1 = "create"
+
+command /coinflip [<string>] [<integer>]:
+    aliases: cf
+    executable by: players
+    trigger:
+        if arg-1 = "delete" or "remove":
+        
+            {-cfrequests::*} does not contain player:
+                send "{@prefix} &7You didn't place a bid!"
+                stop
+
+            send "{@prefix} &7Your bid has been removed!"
+            add {-cfrequests::%player%::bid} to balance of player
+            delete {-cfrequests::%player%::bid}
+            remove player from {-cfrequests::*}
+
+        else if arg-1 = "create":
+
+            if arg-2 is not set:
+                send "{@prefix} Usage: &c/cf create <amount>"
+                stop
+
+            if arg-2 < {@min-bid}:
+                send "{@prefix} &cYou need to bid at least ${@min-bid}!"
+                stop
+
+            if {@max-bid} != -1:
+                arg-2 > {@max-bid}
+                send "{@prefix} &cYou can't bid more than ${@max-bid}!"
+                stop
+
+            if balance of player < arg-2:
+                send "{@prefix} &cYou don't have enough money!"
+                stop
+
+            if {-cfrequests::*} contains player:
+                send "{@prefix} &7You already placed made a bid!"
+                stop
+
+            add player to {-cfrequests::*}
+            set {-cfrequests::%player%::bid} to arg-2
+            remove arg-2 from balance of player
+            send "{@prefix} &7You have placed a bid of &e$%arg-2%"
+        else:
+            coinflipGameGUI(player, 1)
+
+# Coinflip Homepage GUI
+function coinflipGameGUI(p: player, page: number=1):
+
+    set {_list::*} to {-cfrequests::*}
+    set {_nextpage} to ({_page}+1) if (1st element of (pagination({_list::*}, {_page}+1, 21)) is set)
+    set {_previouspage} to ({_page}-1) if (1st element of (pagination({_list::*}, {_page}-1, 21)) is set)
+    set {_verified::*} to pagination({_list::*}, {_page}, 21)
+    set {_slots::*} to (numbers between 10 and 16), (numbers between 19 and 25) and (numbers between 28 and 34)
+
+    set {_chest} to chest inventory with 5 rows named "{@gui-name}"
+    set slot (integers between 0 and 8), (17, 26, 35, 44, 9, 18, 27 and 36) and (integers from 37 to 44) of {_chest} to gray stained glass pane named " "
+
+    loop {_verified::*}:
+        set slot (loop-iterationst element of {_slots::*}) of {_chest} to (skull of loop-value named "&8» &e%loop-value% &8[&6$%{-cfrequests::%loop-value%::bid}%&8]" with lore "&8› &7ᴄʟɪᴄᴋ ᴛᴏ ᴀᴄᴄᴇᴘᴛ") with custom nbt from "{Host:%loop-value%}"
+
+    set slot 40 of {_chest} to book named "&8» <##00FFFF>Your Statistics" with lore "&8┃ &7Wins: &a%{cfstats::%uuid of {_p}%::wins} ? 0%", "&8┃ &7Defeats: &c%{cfstats::%uuid of {_p}%::defeats} ? 0%", "&8┃ &7Profit: &e$%{cfstats::%uuid of {_p}%::profit} ? 0%" and "&8┃ &7Loss: &e$%{cfstats::%uuid of {_p}%::loss} ? 0%"
+
+    # GUI Navigation
+    set slot 38 of {_chest} to red dye named "&cBack &8(&e%{_previouspage}%&8)" if {_previouspage} is set
+    set slot 42 of {_chest} to lime dye named "&aNext page &8(&e%{_nextpage}%&8)" if {_nextpage} is set
+    set {-page::%uuid of {_p}%} to {_page}
+
+    open {_chest} to {_p}
+    set (metadata tag "coinflipGUI" of {_p}) to {_chest}
+
+    while {_p}'s top inventory = {_chest}:
+        coinflipGameGUI({_p}) if {_list::*} != {-cfrequests::*}
+        wait a second
+
+# Coinflip Rolling Animation
+function coinflipStartRoll(p1: player, p2: player, bid: number):
+
+    set {_gui} to chest inventory named "&aCoinflip.." with 3 rows
+    set (metadata tag "coinflipRollGUI" of {_p1}, {_p2}) to {_gui}
+    set slot 4 of {_gui} to hopper named "&6Winner"
+
+    add skull of {_p1} with custom nbt from "{Participent:""%{_p1}%""}" to {_pot::*}
+    add skull of {_p2} with custom nbt from "{Participent:""%{_p2}%""}" to {_pot::*}
+
+    loop 7 times:
+        set {_item} to random element out of {_pot::*}
+        set slot loop-number+9 of {_gui} to {_item}
+        add {_item} to {_items::*}
+
+    open {_gui} to {_p1}, {_p2}
+    wait 0.2 seconds
+
+    set {_speed} to 0.3
+    loop 25 times:
+
+        loop {_items::*}:
+            set {_items::%loop-index%} to {_items::%loop-index parsed as integer + 1%}
+            set slot loop-iteration-2+9 of {_gui} to loop-value-2
+        set {_items::7} to random element out of {_pot::*}
+
+        wait "%{_speed}% ticks" parsed as timespan
+        add 0.30 to {_speed}
+
+    set {_x::*} to {_p1} and {_p2}
+    set {_winner} to first element out of {_x::*} where [(string tag "Participent" of custom nbt of {_items::3}) = input]
+    remove {_winner} from {_x::*}
+    set {_looser} to first element out of {_x::*}
+
+    send "{@prefix} &7You have won against &a%{_looser}% &7in coinflip! &8(&a+$%{_bid}*2%&8)" to {_winner}
+    send "{@prefix} &7You have lost against &c%{_winner}% &7in coinflip! &8(&c-$%{_bid}%&8)" to {_looser}
+    if {@broadcast} = true:
+        broadcast "{@prefix} &7Player &a%{_winner}% &7has won against &c%{_looser}% &7in coinflip with a stake of &e$%{_bid}%"
+
+    close {_p1}, {_p2}'s inventory
+    add {_bid}*2 to balance of {_winner}
+    add {_bid} to {cfstats::%uuid of {_winner}%::profit}
+    add {_bid} to {cfstats::%uuid of {_looser}%::loss}
+    add 1 to {cfstats::%uuid of {_winner}%::wins}
+    add 1 to {cfstats::%uuid of {_looser}%::defeats}
+
+on inventory click:
+    # Block Inventory Clicks from roll GUI
+    cancel event if player's top inventory = (metadata tag "coinflipRollGUI" of player)
+    
+    # Other
+    player's top inventory = (metadata tag "coinflipGUI" of player)
+    cancel event
+
+    coinflipGameGUI(player, {-page::%uuid of player%}-1) if clicked slot = red dye named "&cBack &8(&e%{-page::%uuid of player%}-1%&8)"
+    coinflipGameGUI(player, {-page::%uuid of player%}+1) if clicked slot = lime dye named "&aNext page &8(&e%{-page::%uuid of player%}+1%&8)"
+
+    # Trigger Coinflip
+    event-item = player head
+    set {_host} to (string tag "Host" of custom nbt of event-item) parsed as player
+    set {_bid} to {-cfrequests::%{_host}%::bid}
+
+    if {_host} = player:
+        send "{@prefix} &cYou can't play against yourself!"
+    else if {-cfrequests::*} does not contain {_host}:
+        send "{@prefix} &cPlayer not found!"
+    else if balance of player < {_bid}:
+        send "{@prefix} &cYou don't have enough money!"
+    else:
+        delete {-cfrequests::%{_host}%::bid}
+        remove {_host} from {-cfrequests::*}
+        remove {_bid} from balance of player
+        coinflipStartRoll(player, {_host}, {_bid})
+
+
+function pagination(objects: objects, page: number, elementsPerPage: number) :: objects:
+    set {_page} to floor({_page})
+    set {_elementsPerPage} to floor({_elementsPerPage})
+    set {_startIndex} to ({_page} -1)*{_elementsPerPage}
+    loop {_elementsPerPage} times:
+        add (({_startIndex} + loop-value)th element out of {_objects::*}) to {_objs::*}
+    return {_objs::*}

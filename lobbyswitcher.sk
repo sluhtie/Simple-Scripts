@@ -1,0 +1,42 @@
+import:
+    eu.thesimplecloud.api.CloudAPI
+    eu.thesimplecloud.api.service.ICloudService
+    eu.thesimplecloud.plugin.startup.CloudPlugin
+
+options:
+    server-name: lobby
+
+on load:
+    set {-lobbyswitcher} to chest inventory with 1 row named "Select your lobby"
+    updateLobbySwitcher()
+
+every second:
+    updateLobbySwitcher()
+    
+function openLobbySwitcher(p: player):
+    open {-lobbyswitcher} to {_p}
+
+function updateLobbySwitcher():
+
+    clear inventory of {-lobbyswitcher}
+    set {_cloud} to CloudAPI.getInstance()
+    set {_services} to {_cloud}.getCloudServiceManager().getCloudServicesByGroupName("{@server-name}").size()
+    
+    loop {_services} times:
+        set {_service} to {_cloud}.getCloudServiceManager().getCloudServiceByName("{@server-name}-%loop-number%")
+
+        {_service}.isOnline()
+        if CloudPlugin.getInstance().thisService().getName() = {_service}.getName():
+            set {_item} to green terracotta
+        else if {_service}.isStartingOrVisible():
+            set {_item} to lime terracotta
+            set {_item} to red terracotta if {_service}.getOnlineCount() >= {_service}.getMaxPlayers()
+
+        set {_display} to "{@server-name}-%loop-number%"
+        set name of {_item} to "&8» &b%{_display} in proper case%"
+        set lore of {_item} to "", "&7Online: &a%{_service}.getOnlineCount()%&8/&c%{_service}.getMaxPlayers()%", "&fᴄʟɪᴄᴋ ᴛᴏ ᴄᴏɴɴᴇᴄᴛ"
+        set slot loop-number - 1 of {-lobbyswitcher} to {_item}
+
+on inventory click:
+    event-inventory = {-lobbyswitcher}
+    connect player to server (unformatted lowercase 2nd element out of (name of event-slot split at " "))

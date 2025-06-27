@@ -1,0 +1,66 @@
+#Simple Vanish by sluhtie (DC: sluhtie)
+options:
+    prefix: &8| &aSimpleVanish &8»&7
+    no-perms: &8| &aSimpleVanish &8» &cNo permissions
+
+    #Enable or disable the fake join/leave message on vanish toggle
+    fake-join-leave-message: true
+    join-message: &8[&a+&8] &7%{_p}%
+    leave-message: &8[&c-&8] &7%{_p}%
+
+    bypass-perm: vanish.bypass
+    disable-vanish-on-join: false
+
+#Check if player's vanish should be disabled on join
+on join:
+    {@disable-vanish-on-join} = false
+    hide player from all players where [input does not have permission "{@bypass-perm}"] if {vanish::%uuid of player%} = true
+
+    #(Optional) hide join message when player is vanished
+    set join message to ""
+
+#Vanish command
+command /vanish [<player>]:
+    aliases: v
+    permission: vanish.use
+    permission message: {@no-perms}
+    trigger:
+
+        #set var to sender, override when argument is set
+        set {_target} to sender
+        set {_target} to arg-1 if arg-1 is set
+
+        #check if target is console, if true, send error
+        {_target} = console:
+            send "&cPlease define a argument when executing the command from console!"
+            send "&cUsage: /vanish <player>"
+            stop
+
+        #check if target is the executor, if not check permission
+        else if {_target} != player:
+            player does not have permission "vanish.others"
+            send "{@no-perms}"
+            stop
+
+        #else, toggle target's vanish state and send message to executor
+        toggleVanish({_target})
+        {_target} != sender
+        send "{@prefix} &7Successfully &aenabled &7%arg-1%'s vanish!" if {vanish::%uuid of {_target}%} is set
+        send "{@prefix} &7Successfully &cdisabled &7%arg-1%'s vanish!" if {vanish::%uuid of {_target}%} is not set
+
+#Funcion to toggle a player's vanish
+function toggleVanish(p: player):
+
+    #if vanish is disable, enable
+    if {vanish::%uuid of {_p}%} != true:
+        set {vanish::%uuid of {_p}%} to true
+        hide {_p} from all players where [input does not have permission "{@bypass-perm}"]
+        send "{@prefix} &7Other player's can now &cno longer &7see you!" to {_p}
+        broadcast "{@leave-message}" if {@fake-join-leave-message} = true
+
+    #if vanish is enable, disabled
+    else:
+        delete {vanish::%uuid of {_p}%}
+        reveal {_p} to all players
+        send "{@prefix} &7Other player's can now &asee you &7again!" to {_p}
+        broadcast "{@join-message}" if {@fake-join-leave-message} = true
