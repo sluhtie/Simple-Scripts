@@ -1,3 +1,4 @@
+# Skript Version 1.3.1
 options:
     prefix: &8┃ <##13a4ed>PWarps &8»&f
     no-perms: &8[&c&l!&8] <##eb3434>You don't have permissions to perform this action!
@@ -10,16 +11,23 @@ options:
 
 command /playerwarps [<string>] [<string>]:
     aliases: pw, pwarp
+    executable by: players
     trigger:
-        if arg-1 = "set" or "create":
+
+        # /pwarp create/set
+        if arg-1 = "create" or "set":
+
+            if player does not have permission "playerwarps.use":
+                send "{@no-perms}"
+                stop
 
             arg-2 is not set:
-                send "{@prefix} &fUsage&8: &c/pwarp set/create <warp>"
+                send "{@prefix} &fUsage&8: &c/pwarp %lowercase arg-1% <warp>"
                 stop
 
             loop {playerwarps::*}:
-                add 1 to {_currentwarps} if (string tag "PlayerWarp;OwnerUUID" of nbt of loop-value) = uuid of player
-                set {_warp} to (string tag "PlayerWarp;Name" of nbt of loop-value)
+                add 1 to {_currentwarps} if (string tag "PlayerWarp;OwnerUUID" of custom nbt of loop-value) = uuid of player
+                set {_warp} to (string tag "PlayerWarp;Name" of custom nbt of loop-value)
                 uncolored {_warp} = uncolored arg-2
                 send "{@prefix} <##eb3434>This warp does already exist!"
                 stop
@@ -28,9 +36,9 @@ command /playerwarps [<string>] [<string>]:
                 send "{@prefix} <##eb3434>The name can't be longer than &c{@max-name-lenght} <##eb3434>characters, excluding color codes!"
                 stop
 
-            if {_currentwarps} >= getMaxVotes(player):
+            if {_currentwarps} ? 0 >= getMaxWarps(player):
                 player does not have permission "playerwarps.max.infinite"
-                send "{@prefix} <##eb3434>You can't place more than &c%getMaxVotes(player)% <##eb3434>warps!"
+                send "{@prefix} <##eb3434>You can't place more than &c%getMaxWarps(player)% <##eb3434>warps!"
                 stop
 
             set {_name} to arg-2 if player has permission "playerwarps.colored" else uncolored arg-2
@@ -40,16 +48,22 @@ command /playerwarps [<string>] [<string>]:
             set (float list tag "PlayerWarp;Location;facing" of {_nbt}) to (player's yaw) and (player's pitch)
             set (string tag "PlayerWarp;Location;world" of {_nbt}) to (name of player's world)
 
-            add skull of player with nbt from {_nbt} to {playerwarps::*}
+            add skull of player with custom nbt from {_nbt} to {playerwarps::*}
             send "{@prefix} &fSuccessfully &acreated &fwarp ""%{_name}%"""
-        else if arg-1 = "delete":
+
+        # /pwarp delete/remove
+        else if arg-1 = "delete" or "remove":
+
+            if player does not have permission "playerwarps.use":
+                send "{@no-perms}"
+                stop
 
             arg-2 is not set:
-                send "{@prefix} &fUsage&8: &c/pwarp delete <warp>"
+                send "{@prefix} &fUsage&8: &c/pwarp %lowercase arg-1% <warp>"
                 stop
 
             loop {playerwarps::*}:
-                set {_warp} to (string tag "PlayerWarp;Name" of nbt of loop-value)
+                set {_warp} to (string tag "PlayerWarp;Name" of custom nbt of loop-value)
                 uncolored {_warp} = uncolored arg-2
                 set {_item} to loop-value
                 stop loop
@@ -59,43 +73,59 @@ command /playerwarps [<string>] [<string>]:
                 stop
 
             if player does not have permissions "playerwarps.admin":
-                (string tag "PlayerWarp;OwnerUUID" of nbt of {_item}) != uuid of player
+                (string tag "PlayerWarp;OwnerUUID" of custom nbt of {_item}) != uuid of player
                 send "{@prefix} <##eb3434>You are not the owner of this warp!"
                 stop
 
             send "{@prefix} &fSuccesfully &cdeleted &fwarp ""%arg-2%"""
             remove {_item} from {playerwarps::*}
+
+        # /pwarp edit
         else if arg-1 = "edit":
+
+            if player does not have permission "playerwarps.use":
+                send "{@no-perms}"
+                stop
 
             arg-2 is not set:
                 send "{@prefix} &fUsage&8: &c/pwarp edit <warp>"
                 stop
 
             editWarpGUI(player, arg-2)
-        else if getPWarpByName(arg-1) is set:
-            teleportToWarp(player, arg-1)
+
+        # PWarp GUI
         else:
-            openPlayerWarpGUI(player, 1)
+            set {_warp} to full command
+            replace "%command% " with "" in {_warp}
+            if getPWarpByName({_warp}) is set:
+                teleportToWarp(player, {_warp})
+            else:
+                openPlayerWarpGUI(player, 1)
             
 
 # ----- [ Tab Completions (require skBee) ] ----- #
 
 on tab complete of "playerwarps" or "pw" or "pwarp":
+
     loop {playerwarps::*}:
-        set {_warp} to (string tag "PlayerWarp;Name" of nbt of loop-value)
+        set {_warp} to (string tag "PlayerWarp;Name" of custom nbt of loop-value)
         add uncolored {_warp} to {_warps::*}
-        tab arg-1 = "delete" or "edit"
+        tab arg-1 = "delete", "remove" or "edit"
         if player does not have permissions "playerwarps.admin":
-            (string tag "PlayerWarp;OwnerUUID" of nbt of loop-value) = uuid of player
+            (string tag "PlayerWarp;OwnerUUID" of custom nbt of loop-value) = uuid of player
             add uncolored {_warp} to tab completions for position 2
         else:
             set tab completions for position 2 to {_warps::*}
-    set tab completions for position 1 to "set", "create", "delete" and "edit" and {_warps::*}
+
+    player has permission "playerwarps.use":
+        set tab completions for position 1 to "create", "set", "delete", "remove" and "edit"
+    add {_warps::*} to tab completions for position 1
 
 # ----- [ Chat Listening Event (Warp name change) ] ----- #
 
 on chat:
     set {_value::*} to (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player)
+    {_value::*} is set
     set {_item} to getPWarpByName({_value::2})
     cancel event
 
@@ -111,11 +141,14 @@ on chat:
             send "{@prefix} <##eb3434>The name can't be longer than &c{@max-name-lenght} <##eb3434>characters, excluding color codes!"
             stop
 
+        set {_input} to message
+
         remove {_item} from {playerwarps::*}
-        set (string tag "PlayerWarp;Name" of nbt of {_item}) to message
-        editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
+        set (string tag "PlayerWarp;Name" of custom nbt of {_item}) to {_input}
         send "{@prefix} &fName &aupdated &fsuccessfully."
         add {_item} to {playerwarps::*}
+
+        editWarpGUI(player, {_input})
 
     # Description change
     {_value::1} = "description":
@@ -131,29 +164,36 @@ on chat:
             stop
 
         remove {_item} from {playerwarps::*}
-        set (string list tag "PlayerWarp;Description" of nbt of {_item}) to {_lore::*}
-        editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of {_item}))
+        set (string list tag "PlayerWarp;Description" of custom nbt of {_item}) to {_lore::*}
         send "{@prefix} &fDescription &aupdated &fsuccessfully."
         add {_item} to {playerwarps::*}
 
+        set {_warp} to (string tag "PlayerWarp;Name" of custom nbt of {_item})
+        editWarpGUI(player, {_warp})
+
     # Owner transfer
     {_value::1} = "ownerTransfer":
-        set {_target} to uncolored message
+        set {_target} to uncolored message parsed as player
 
         {_target} does not match "^[a-zA-Z0-9_]{2,16}$":
             send "{@prefix} <##eb3434>This is not a valid Minecraft username!"
             stop
 
-        {_target} parsed as player is not set:
+        {_target} is not set:
             send "{@prefix} <##eb3434>This player is not online!"
             stop
 
+        getMaxWarps({_target}) <= size of ({playerwarps::*} where [(string tag "PlayerWarp;OwnerUUID" of custom nbt of input = uuid of {_target})]):
+            send "{@prefix} <##eb3434>This player can't have more warps!"
+            stop
+
         remove {_item} from {playerwarps::*}
-        set {_nbt} to nbt of {_item}
+        set {_nbt} to custom nbt of {_item}
         set (string tag "PlayerWarp;OwnerName" of {_nbt}) to {_target}
-        set (string tag "PlayerWarp;OwnerUUID" of {_nbt}) to uuid of ({_target} parsed as player)
+        set (string tag "PlayerWarp;OwnerUUID" of {_nbt}) to uuid of {_target}
         send "{@prefix} The warp has successfully been transfered to &e%{_target}%"
-        add 1 of skull of ({_target} parsed as player) with nbt from "{PlayerWarp:%compound tag "PlayerWarp" of {_nbt}%}" to {playerwarps::*}
+        send "{@prefix} You are now the owner of warp &e%{_target}%" to {_target}
+        add 1 of skull of {_target} with custom nbt from "{PlayerWarp:%compound tag "PlayerWarp" of {_nbt}%}" to {playerwarps::*}
 
     delete (string list tag "custom;PlayerWarps;ChatBlocker" of nbt of player)
 
@@ -162,14 +202,18 @@ on chat:
 
 function openPlayerWarpGUI(p: player, page: integer, onlyOwned: boolean = false):
     {_page} is set
-    if {_onlyOwned} = true:
-        set {_list::*} to {playerwarps::*} where [(string tag "PlayerWarp;OwnerUUID" of nbt of input) = uuid of {_p}]
-        set {_toggleOwnedItem} to diamond of sharpness 1 with item flag hide enchants
-    else:
-        set {_list::*} to {playerwarps::*}
-    set {_nextpage} to ({_page}+1) if (1st element of (pagination({_list::*}, {_page}+1, 28)) is set)
-    set {_previouspage} to ({_page}-1) if (1st element of (pagination({_list::*}, {_page}-1, 28)) is set)
-    set {_verified::*} to pagination({_list::*}, {_page}, 28)
+    set {_toggleOwnedItem} to diamond of sharpness 1 with item flag hide enchants if {_onlyOwned} = true
+    loop {playerwarps::*}:
+        if {_onlyOwned} = true:
+            (string tag "PlayerWarp;OwnerUUID" of custom nbt of loop-value) != uuid of {_p}
+            continue
+        set {_warpName} to (string tag "PlayerWarp;Name" of custom nbt of loop-value)
+        set {_visits} to (int tag "PlayerWarp;Visits" of custom nbt of loop-value)
+        set {_unsorted::%{_warpName}%} to {_visits}
+    set {_sorted::*} to sorted indices of {_unsorted::*} in descending order
+    set {_nextpage} to ({_page}+1) if (1st element of (pagination({_sorted::*}, {_page}+1, 28)) is set)
+    set {_previouspage} to ({_page}-1) if (1st element of (pagination({_sorted::*}, {_page}-1, 28)) is set)
+    set {_verified::*} to pagination({_sorted::*}, {_page}, 28)
     set {_chest} to chest inventory with 6 rows named "&8» <##13a4ed>&lPLAYERWARPS &8[&7Page %{_page}%&8]"
     set {_slots::*} to (numbers between 10 and 16), (numbers between 19 and 25), (numbers between 28 and 34) and (numbers between 37 and 43)
     set {_n} to 1
@@ -184,8 +228,9 @@ function openPlayerWarpGUI(p: player, page: integer, onlyOwned: boolean = false)
     open {_chest} to {_p}
 
 # Create warp GUI item from warp object
-function getWarpItem(p: player, item: item) :: item:
-    set {_nbt} to nbt of {_item}
+function getWarpItem(p: player, warp: string) :: item:
+    set {_item} to getPWarpByName({_warp})
+    set {_nbt} to custom nbt of {_item}
 
     add "&8› &fᴏᴡɴᴇʀ&8: &7%string tag "PlayerWarp;OwnerName" of {_nbt}%" to {_lore::*}
     add "&8› &fᴄʀᴇᴀᴛᴇᴅ ᴀᴛ&8: &7%unix date of double tag "PlayerWarp;CreatedAt" of {_nbt} formatted as "dd.MM.yyyy HH:mm:ss"%" to {_lore::*}
@@ -221,17 +266,17 @@ function teleportToWarp(p: player, warp: string):
         wait a second
 
     set {_item} to getPWarpByName({_warp})
-    set {_coords::*} to (double list tag "PlayerWarp;Location;pos" of nbt of {_item})
-    set {_facing::*} to (float list tag "PlayerWarp;Location;facing" of nbt of {_item})
+    set {_coords::*} to (double list tag "PlayerWarp;Location;pos" of custom nbt of {_item})
+    set {_facing::*} to (float list tag "PlayerWarp;Location;facing" of custom nbt of {_item})
 
-    set {_world} to (string tag "PlayerWarp;Location;world" of nbt of {_item})
+    set {_world} to (string tag "PlayerWarp;Location;world" of custom nbt of {_item})
 
     teleport {_p} to location({_coords::1}, {_coords::2}, {_coords::3}, {_world}, {_facing::1}, {_facing::2})
     play sound "block.note_block.bell" with pitch 2 to {_p}
 
-    int tag "PlayerWarp;Locked" of nbt of {_item} = 0
+    int tag "PlayerWarp;Locked" of custom nbt of {_item} = 0
     remove {_item} from {playerwarps::*}
-    add 1 to int tag "PlayerWarp;Visits" of nbt of {_item}
+    add 1 to int tag "PlayerWarp;Visits" of custom nbt of {_item}
     add {_item} to {playerwarps::*}
 
 # ----- [ Inventory Click Event (PlayerWarp GUI) ] ----- #
@@ -253,22 +298,22 @@ on inventory click:
 
     name of event-slot starts with "&8→ "
     click type = left mouse button:
-        (int tag "PlayerWarp;Locked" of nbt of event-slot) = 1:
+        (int tag "PlayerWarp;Locked" of custom nbt of event-slot) = 1:
             player does not have permissions "playerwarps.admin"
-            (string tag "PlayerWarp;OwnerUUID" of nbt of event-slot) != uuid of player
+            (string tag "PlayerWarp;OwnerUUID" of custom nbt of event-slot) != uuid of player
             send "{@prefix} <##eb3434>This warp is locked!"
             stop
-        teleportToWarp(player, (string tag "PlayerWarp;Name" of nbt of event-slot))
+        teleportToWarp(player, (string tag "PlayerWarp;Name" of custom nbt of event-slot))
         close player's inventory
     else if click type = right mouse button:
-        (string tag "PlayerWarp;OwnerUUID" of nbt of event-slot) = uuid of player
-        editWarpGUI(player, (string tag "PlayerWarp;Name" of nbt of event-slot))
+        (string tag "PlayerWarp;OwnerUUID" of custom nbt of event-slot) = uuid of player
+        editWarpGUI(player, (string tag "PlayerWarp;Name" of custom nbt of event-slot))
 
 # ----- [ Warp Editing GUI ] ----- #
 
 function editWarpGUI(p: player, warp: string):
 
-    set {_nbt} to nbt of getPWarpByName({_warp})
+    set {_nbt} to custom nbt of getPWarpByName({_warp})
 
     {_nbt} is not set:
         send "{@prefix} <##eb3434>This warp does not exist!" to {_p}
@@ -289,7 +334,7 @@ function editWarpGUI(p: player, warp: string):
     set {_info} to "%nl%&c(Can't be air)" if {_p}'s tool is air
     set slot 13 of {_gui} to crafting table named "&8» &bChange Icon" with lore "&7Sets the item that you are%nl%&7currently holding as warp icon.%{_info} ? ""%"
     set slot 14 of {_gui} to getLockedStatusItem({_nbt}) named "&8» &bChange Status"
-    set slot 15 of {_gui} to empty map named "&8» &bUpdate Location" with lore "&7Sets the location of your warp,%nl%&7to your current position."
+    set slot 15 of {_gui} to map named "&8» &bUpdate Location" with lore "&7Sets the location of your warp,%nl%&7to your current position."
     
     set slot 29 of {_gui} to customSkull("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMzdhZWU5YTc1YmYwZGY3ODk3MTgzMDE1Y2NhMGIyYTdkNzU1YzYzMzg4ZmYwMTc1MmQ1ZjQ0MTlmYzY0NSJ9fX0=") named "&8» &cGo back" with lore "&7Click to go back"
     set slot 31 of {_gui} to customSkull("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYmViNTg4YjIxYTZmOThhZDFmZjRlMDg1YzU1MmRjYjA1MGVmYzljYWI0MjdmNDYwNDhmMThmYzgwMzQ3NWY3In19fQ==") named "&8» &4Delete Warp" with lore "&cThis will delete your warp!%nl%&cEqual to &4/pwarp delete %unformatted {_warp}%"
@@ -312,7 +357,7 @@ on inventory click:
     {_warp} is set
 
     set {_item} to getPWarpByName({_warp})
-    set {_nbt} to nbt of {_item}
+    set {_nbt} to custom nbt of {_item}
  
     # Back button
     name of event-slot = "&8» &cGo back":
@@ -346,12 +391,12 @@ on inventory click:
             close player's inventory
             stop
 
-        (string list tag "PlayerWarp;Description" of nbt of {_item}) is not set:
+        (string list tag "PlayerWarp;Description" of custom nbt of {_item}) is not set:
             send "{@prefix} You don't have a description set!"
             stop
 
         remove {_item} from {playerwarps::*}
-        delete (string list tag "PlayerWarp;Description" of nbt of {_item})
+        delete (string list tag "PlayerWarp;Description" of custom nbt of {_item})
         add {_item} to {playerwarps::*}
         send "{@prefix} &fDescription &cremoved &fsuccessfully."
         set item cooldown of event-slot for player to 10 ticks
@@ -360,7 +405,7 @@ on inventory click:
     name of event-slot = "&8» &bChange Icon":
         player's tool != air
         remove {_item} from {playerwarps::*}
-        add 1 of (type of player's tool) with nbt from {_nbt} to {playerwarps::*}
+        add 1 of (type of player's tool) with custom nbt from {_nbt} to {playerwarps::*}
 
     # Status change
     name of event-slot = "&8» &bChange Status":
@@ -369,7 +414,7 @@ on inventory click:
             set int tag "PlayerWarp;Locked" of {_nbt} to 1
         else:
             set int tag "PlayerWarp;Locked" of {_nbt} to 0
-        add 1 of (type of {_item}) with nbt from {_nbt} to {playerwarps::*}
+        add 1 of (type of {_item}) with custom nbt from {_nbt} to {playerwarps::*}
         set slot 14 of player's current inventory to getLockedStatusItem({_nbt}) named "&bChange Status"
 
     # Update location
@@ -380,7 +425,7 @@ on inventory click:
         set (float list tag "PlayerWarp;Location;facing" of {_nbt}) to (player's yaw) and (player's pitch)
         set (string tag "PlayerWarp;Location;world" of {_nbt}) to (name of player's world)
 
-        add 1 of (type of {_item}) with nbt from {_nbt} to {playerwarps::*}
+        add 1 of (type of {_item}) with custom nbt from {_nbt} to {playerwarps::*}
         send "{@prefix} &fSuccessfully &aupdated &fthe warp location."
 
 
@@ -405,7 +450,7 @@ on inventory close:
 # Get warp object from list by name function
 function getPWarpByName(warp: string) :: item:
     loop {playerwarps::*}:
-        set {_tag} to (string tag "PlayerWarp;Name" of nbt of loop-value)
+        set {_tag} to (string tag "PlayerWarp;Name" of custom nbt of loop-value)
         return loop-value if uncolored {_tag} = uncolored {_warp}
 
 # Calculate amount of items listed on GUI page
@@ -418,11 +463,11 @@ function pagination(objects: objects, page: number, elementsPerPage: number) :: 
     return {_objs::*}
 
 # Get warp cap from player based of their permission 'playerwarps.max.X'
-function getMaxVotes(p: player) :: integer:
+function getMaxWarps(p: player) :: integer:
     loop permissions of {_p} where [input contains "playerwarps.max."]:
         set {_x::*} to loop-value parsed as "%text%%number%"
         set {_votes} to {_x::2} if {_x::2} > ({_votes} ? 0)
-    return ({_votes} ? 2)
+    return ({_votes} ? 0)
 
 function customSkull(nbt: string) :: item:
     return player head with nbt compound from "{SkullOwner:{Id:[I;0,0,0,0],Properties:{textures:[{Value:""%{_nbt}%""}]}}}"
